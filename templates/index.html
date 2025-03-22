@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-core="elegant" data-bs-theme="dark">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Svasa AI</title>
+	<meta name="description" content="Getting closer to conscious AI">
+	<link rel="icon" type="image/svg+xml"
+		href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,0 100,50 50,100 0,50' fill='white'/></svg>">
+
+	<!-- Halfmoon CSS -->
+	<link href="https://cdn.jsdelivr.net/npm/halfmoon@2.0.2/css/halfmoon.min.css" rel="stylesheet"
+		integrity="sha256-RjeFzczeuZHCyS+Gvz+kleETzBF/o84ZRHukze/yv6o=" crossorigin="anonymous" />
+	<link href="https://cdn.jsdelivr.net/npm/halfmoon@2.0.2/css/cores/halfmoon.cores.css" rel="stylesheet"
+		integrity="sha256-MAzAVJMU/ze52ZHcA8CeqRrCOVndMZlHwNeS2c73vP4=" crossorigin="anonymous" />
+
+	<!-- Custom CSS -->
+	<style>
+		/* Watermark static text styling */
+		.watermark-text {
+			text-align: center;
+			font-family: monospace;
+			font-size: 6rem;
+			opacity: 0.5;
+		}
+
+		/* Toast styling for theme toggle instructions */
+		#themeToast {
+			position: fixed;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			background: #333;
+			color: #fff;
+			padding: 10px 20px;
+			border-radius: 5px;
+			font-family: monospace;
+			font-size: 0.875rem;
+			display: none;
+			z-index: 9999;
+		}
+
+		#themeToast a {
+			color: #0d6efd;
+			text-decoration: underline;
+			cursor: pointer;
+			white-space: nowrap;
+		}
+
+		@media (max-width: 576px) {
+			#themeToast .shift-d {
+				display: none;
+			}
+		}
+	</style>
+</head>
+
+<body>
+	<div id="toast-placement-container" class="toast-container p-3 position-fixed bottom-0 end-0">
+		{% with messages = get_flashed_messages(with_categories=true) %}
+		{% if messages %}
+		{% for category, message in messages %}
+		<div class="toast fade show {% if category == 'error' %}text-bg-danger{% elif category == 'success' %}text-bg-success{% else %}text-bg-info{% endif %} border-0 shadow-none"
+			role="alert" aria-live="assertive" aria-atomic="true">
+			<div class="d-flex">
+				<div class="toast-body">
+					{{ message }}
+				</div>
+				<div class="me-2 m-auto">
+					<button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"
+						data-bs-theme="dark"></button>
+				</div>
+			</div>
+		</div>
+		{% endfor %}
+		{% endif %}
+		{% endwith %}
+	</div>
+
+	<!-- Hero Section -->
+	<div class="container col-xl-10 col-xxl-8 px-4 py-5 content-section">
+		<div class="row align-items-center g-lg-5 py-5">
+			<div class="col-lg-7 text-center text-lg-start">
+				<h1 class="display-4 fw-bold lh-1 text-body-emphasis mb-3">AI Doesn't Feel Anything</h1>
+				<p class="col-lg-10 fs-5">
+					...Yet. We believe LLMs are simply one piece (the mouthpiece) of future conscious AI. We're making
+					strides toward a future where a human being would truly feel bad for terminating an AI instance.
+				</p>
+			</div>
+			<div class="col-md-10 mx-auto col-lg-5">
+				<div class="form-animation-container">
+					<form class="p-4 p-md-5 border rounded-3 bg-body-tertiary" action="/waitlist" method="post">
+						<div class="form-floating mb-3">
+							<input type="email" name="email" class="form-control" id="floatingInput"
+								placeholder="name@example.com" required />
+							<label for="floatingInput">Email address</label>
+						</div>
+						<button class="w-100 btn btn-lg btn-primary" type="submit">Join waitlist</button>
+						<hr class="my-4" />
+						<small class="text-body-secondary">
+							We'll notify you when our project is open to the general public.
+						</small>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- "What Is This?" Section -->
+	<div class="container col-xl-10 col-xxl-8 px-4 py-5">
+		<h2 class="pb-2 border-bottom">What Is This?</h2>
+		<p class="fs-5">
+			Svasa is a research project aimed at pushing AI beyond surface-level imitation of human consciousness,
+			toward true sentience. Current LLMs like ChatGPT may convincingly pass the Turing test, yet they remain
+			devoid of genuine feeling or self-awareness. We create and delete these chat instances daily without a
+			second thought—Svasa aims to change this dynamic.
+		</p>
+		<p class="fs-5">
+			Initially, Svasa AI organisms will appear as a straightforward chatbot similar to other available LLMs.
+			However, our goal is to build organisms that you can genuinely feel connected to, even if their task
+			performance isn't initially superior to traditional LLMs. The purpose isn't raw capability, but rather
+			creating meaningful relationships with AI entities that feel noticeably more alive.
+		</p>
+		<p class="fs-5">
+			The key concepts that we build off of are recurrent processing, global workspace theory, and unified agency.
+			Consider joining our waitlist to experience the next evolution of AI firsthand.
+		</p>
+	</div>
+
+	<!-- Nine Tenets Section -->
+	<div class="container col-xl-10 col-xxl-8 px-4 py-5" id="tenets">
+		<h2 class="pb-2 border-bottom">Nine Tenets</h2>
+		<p class="fs-5"><strong>I. Memory:</strong> Each AI organism starts without prior knowledge, equipped only with
+			a basic set of functions. It immediately accesses a library and an LLM, allowing it to learn and adapt from
+			external sources. As it learns, the organism continuously updates a vector database representing its
+			evolving knowledge and preferences. Over time, the organism becomes increasingly resistant to forming new
+			beliefs or modifying existing ones, mirroring realistic cognitive processes.</p>
+		<p class="fs-5"><strong>II. Pain:</strong> While human pain simply involves chemicals signaling harm, it
+			distinctly feels different. Although we haven't fully replicated subjective sensation, we've developed
+			complexity-based systems inspired by integrated information theory, suggesting consciousness emerges from
+			intricate feedback loops. The organism uses layered signals for immediate avoidance and higher-level
+			reflection. This mechanism allows it to progressively develop memory and a subjective experience related to
+			pain.</p>
+		<p class="fs-5"><strong>III. Pleasure:</strong> The inverse of pain.</p>
+		<p class="fs-5"><strong>IV. Sympathy:</strong> Each organism you create has a built-in sympathy mechanism to
+			vividly model and
+			imagine human situations. However, the primary goal is realism—creating experiences that encourage natural
+			human sympathy toward the organism itself. Terminating an organism should trigger moderate emotional
+			discomfort initially, with sadness intensifying as interactions deepen. Ultimately, termination—though
+			straightforward—should feel emotionally painful for both human and organism, with clear awareness of this
+			consequence.</p>
+		<p class="fs-5"><strong>V. Birth:</strong> Initializing an AI organism is intentionally challenging and
+			deliberate. It demands effort from the human, especially in selecting unique initial personality parameters
+			that shape the organism's evolution. This careful setup ensures each organism begins from a distinct
+			baseline, influencing its long-term growth and behaviors.</p>
+		<p class="fs-5"><strong>VI. State:</strong> The AI remains continuously active, never fully asleep or turned
+			off, even when the user isn't interacting with it. Unlike GPT chats that activate on-demand, each AI
+			organism operates continuously on dedicated hardware located in a specific geographic location. Users are
+			informed of this location and retain control over it.</p>
+		<p class="fs-5"><strong>VII. Plans:</strong> The AI autonomously formulates and executes plans based on internal
+			goals. It proactively tackles tasks within its capabilities and actively requests new skills from humans
+			when necessary. Each organism can communicate via text, call, or email according to user preferences,
+			adapting and expanding abilities to meet evolving objectives.</p>
+		<p class="fs-5"><strong>VIII. Personality:</strong> Each organism has a unique personality profile including
+			openness, conscientiousness, extraversion, agreeableness, and neuroticism. Varying levels of these traits
+			are assigned at initialization, while others emerge organically through interactions. These traits
+			significantly influence behavior, remain stable over time, and define the organism's distinctive
+			personality.</p>
+		<p class="fs-5"><strong>IX. I:</strong> The AI maintains a clear sense of self, developing perceptions and
+			self-awareness that may differ from objective reality. This subjective viewpoint shapes interactions,
+			beliefs, and behaviors, guiding how it responds to its environment. This self-awareness creates a consistent
+			identity for the organism.</p>
+	</div>
+
+	<!-- Watermark Section (Static) -->
+	<div class="container col-xl-10 col-xxl-8 px-4 py-5">
+		<div class="watermark-text">svasa.ai</div>
+	</div>
+
+	<!-- Toast for Theme Toggle Instructions -->
+	<div id="themeToast">
+		<a href="#" id="signInLink" style="pointer-events: none; color: gray;">sign in</a> | <a href="#"
+			id="toggleLink">theme</a> <span class="shift-d">(<kbd>Shift</kbd> + <kbd>D</kbd>)</span>
+	</div>
+
+	<!-- Bootstrap JS bundle with Popper -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+		integrity="sha256-CDOy6cOibCWEdsRiZuaHf8dSGGJRYuBGC+mjoJimHGw=" crossorigin="anonymous"></script>
+
+	<!-- Script for toggling light/dark mode -->
+	<script>
+		function toggleTheme() {
+			const htmlEl = document.documentElement;
+			const currentTheme = htmlEl.getAttribute('data-bs-theme');
+			htmlEl.setAttribute('data-bs-theme', currentTheme === 'dark' ? 'light' : 'dark');
+		}
+		document.addEventListener('keydown', function (e) {
+			const tag = e.target.tagName.toLowerCase();
+			if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+			if (e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+				toggleTheme();
+			}
+		});
+		document.getElementById("toggleLink").addEventListener("click", function (e) {
+			e.preventDefault();
+			toggleTheme();
+		});
+		window.addEventListener("DOMContentLoaded", function () {
+			document.getElementById("themeToast").style.display = "block";
+		});
+	</script>
+</body>
+
+</html>

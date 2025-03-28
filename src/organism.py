@@ -1,7 +1,14 @@
 import os
 import yaml
-import random
+import datetime
 from utils import generate_unique_code
+from modules.personality.emotions import Emotions
+from modules.personality.personality import (
+    generate_random_personality,
+    get_personality_description,
+    save_personality,
+    load_personality
+)
 
 
 class Organism:
@@ -40,54 +47,32 @@ class Organism:
         self.personality_dir = os.path.join(self.org_dir, "personality")
         os.makedirs(self.personality_dir, exist_ok=True)
         self.personality_file = os.path.join(self.personality_dir, "traits.yaml")
+        self.emotions_file = os.path.join(self.personality_dir, "emotions.yaml")
         
         # Generate random BIG 5 personality traits
-        self.personality = self._generate_random_personality()
+        self.personality = generate_random_personality()
         
         # Save personality traits to YAML file
-        self._save_personality()
-
-    def _generate_random_personality(self):
-        """Generate random BIG 5 personality trait values."""
-        return {
-            "openness": round(random.random(), 2),
-            "conscientiousness": round(random.random(), 2),
-            "extraversion": round(random.random(), 2),
-            "agreeableness": round(random.random(), 2),
-            "neuroticism": round(random.random(), 2)
-        }
-    
-    def _save_personality(self):
-        """Save personality traits to YAML file."""
-        with open(self.personality_file, 'w') as file:
-            yaml.dump(self.personality, file, default_flow_style=False)
+        save_personality(self.personality, self.personality_file)
+        
+        # Initialize emotions
+        self.emotions = Emotions(personality=self.personality, file_path=self.emotions_file)
     
     def get_personality_description(self):
         """Return a human-readable description of the organism's personality."""
-        descriptions = []
-        
-        trait_descriptions = {
-            "openness": ["conventional and traditional", "curious and innovative"],
-            "conscientiousness": ["spontaneous and flexible", "organized and disciplined"],
-            "extraversion": ["reserved and reflective", "outgoing and energetic"],
-            "agreeableness": ["analytical and detached", "empathetic and cooperative"],
-            "neuroticism": ["emotionally stable and calm", "sensitive and reactive"]
-        }
-        
-        for trait, (low, high) in trait_descriptions.items():
-            value = self.personality[trait]
-            if value < 0.3:
-                descriptions.append(f"Very {low}")
-            elif value < 0.5:
-                descriptions.append(f"Somewhat {low}")
-            elif value > 0.7:
-                descriptions.append(f"Very {high}")
-            elif value > 0.5:
-                descriptions.append(f"Somewhat {high}")
-            else:
-                descriptions.append(f"Balanced between {low} and {high}")
-        
-        return ". ".join(descriptions) + "."
+        return get_personality_description(self.personality)
+    
+    def get_current_emotions(self):
+        """Get the current emotional state of the organism."""
+        return self.emotions.get_current_emotions()
+    
+    def get_baseline_emotions(self):
+        """Get the baseline emotional state of the organism."""
+        return self.emotions.get_baseline_emotions()
+    
+    def get_emotional_state_description(self):
+        """Get a human-readable description of the organism's current emotional state."""
+        return self.emotions.describe_emotional_state()
 
     @classmethod
     def load(cls, organism_name):
@@ -115,18 +100,24 @@ class Organism:
         os.makedirs(instance.chat_history_dir, exist_ok=True)
         os.makedirs(instance.episodic_memory_dir, exist_ok=True)
         
-        # Set up personality directory and file path
+        # Set up personality directory and file paths
         instance.personality_dir = os.path.join(instance.org_dir, "personality")
         os.makedirs(instance.personality_dir, exist_ok=True)
         instance.personality_file = os.path.join(instance.personality_dir, "traits.yaml")
+        instance.emotions_file = os.path.join(instance.personality_dir, "emotions.yaml")
         
         # Load personality if file exists, otherwise generate random personality
         if os.path.exists(instance.personality_file):
-            with open(instance.personality_file, 'r') as file:
-                instance.personality = yaml.safe_load(file)
+            instance.personality = load_personality(instance.personality_file)
         else:
-            instance.personality = instance._generate_random_personality()
-            instance._save_personality()
+            instance.personality = generate_random_personality()
+            save_personality(instance.personality, instance.personality_file)
+        
+        # Initialize emotions - will load from file if it exists or create new if it doesn't
+        instance.emotions = Emotions(
+            personality=instance.personality,
+            file_path=instance.emotions_file
+        )
         
         # Check if organism exists
         if not os.path.exists(instance.org_dir):

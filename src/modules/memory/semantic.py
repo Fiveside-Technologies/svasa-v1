@@ -14,7 +14,7 @@ def query_message(
     message = introduction
     
     for string in strings:
-        record = f'\n\nRecord section:\n"""\n{string}\n"""'
+        record = f'\n\nKnowledge section:\n"""\n{string}\n"""'
         if num_tokens(message + record, model=model) > token_budget:
             break
         message += record

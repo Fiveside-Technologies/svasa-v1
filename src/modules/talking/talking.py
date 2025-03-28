@@ -5,6 +5,7 @@ from config import GPT_MODEL
 from modules.memory.memory import Memory
 from modules.memory.semantic import query_message
 import os
+from modules.personality.sentiment_analysis import analyze_user_message
 
 # Track conversation history and insights over time
 conversations = []
@@ -15,6 +16,7 @@ def prompt_coordinator(
     query: str,
     knowledge_df: pd.DataFrame,
     memory,
+    organism=None,  # Add organism parameter
     model: str = GPT_MODEL,
     token_budget: int = 4096 - 500
 ) -> list:
@@ -26,6 +28,7 @@ def prompt_coordinator(
         query: User's query
         knowledge_df: DataFrame with knowledge embeddings
         memory: Memory instance
+        organism: The organism instance (optional)
         model: Language model to use
         token_budget: Token limit for context
         
@@ -55,11 +58,17 @@ def prompt_coordinator(
     # Step 3: Get procedural guidelines
     procedural_memory = memory.get_procedural_memory().get_guidelines()
     
-    # Step 4: Create the coordinated prompt
+    # Step 4: Get emotional state if available
+    emotional_state = ""
+    if organism and hasattr(organism, 'emotions'):
+        emotional_state = organism.emotions.describe_emotional_state()
+    
+    # Step 5: Create the coordinated prompt with clear section labels
+    final_query = ""
+    
+    # Add episodic memory section if available
     if reflections:
         reflection = reflections[0]
-        
-        # Get the current conversation
         current_conversation = reflection.get("conversation", "")
         
         # Update memory stores, excluding current conversation from history
@@ -76,32 +85,53 @@ def prompt_coordinator(
         # Get previous conversations excluding the current one
         previous_convos = [conv for conv in conversations[-4:] if conv != current_conversation][-3:]
         
-        # Create episodic context with procedural memory
-        context = f"""
+        # Add episodic memory section
+        final_query += """
+=== EPISODIC MEMORY ===
 You recall similar conversations with the user, here are the details:
 
 Current Conversation Match: {current_conversation}
-Previous Conversations: {' | '.join(previous_convos)}
-What has worked well: {' '.join(what_worked)}
-What to avoid: {' '.join(what_to_avoid)}
-
-Additionally, here are guidelines for interactions with the current user:
+Previous Conversations: {previous_convos}
+What has worked well: {what_worked}
+What to avoid: {what_to_avoid}
+""".format(
+            current_conversation=current_conversation,
+            previous_convos=' | '.join(previous_convos),
+            what_worked=' '.join(what_worked),
+            what_to_avoid=' '.join(what_to_avoid)
+        )
+    
+    # Add procedural guidelines section
+    final_query += """
+=== PROCEDURAL GUIDELINES ===
 {procedural_memory}
-
-Use these memories, as well as previous messages in this conversation, as context for your response to the user."""
-
-        user_message = f"\n\nUSER MESSAGE: {query}"
-        final_query = context + "\n\n" + knowledge_context + user_message
-    else:
-        # If no reflections, just use knowledge context and procedural memory
-        context = f"""
-Additionally, here are guidelines for interactions with the current user:
-{procedural_memory}
-
-Use these guidelines, as well as previous messages in this conversation, as context for your response to the user."""
-
-        user_message = f"\n\nUSER MESSAGE: {query}"
-        final_query = context + "\n\n" + knowledge_context + user_message
+""".format(procedural_memory=procedural_memory)
+    
+    # Add knowledge context section
+    final_query += """
+=== KNOWLEDGE CONTEXT ===
+{knowledge_context}
+""".format(knowledge_context=knowledge_context)
+    
+    # Add emotional state section if available
+    if emotional_state:
+        final_query += """
+=== EMOTIONAL STATE ===
+The following is your emotional state. Use it to influence your tone and response.
+{emotional_state}
+""".format(emotional_state=emotional_state)
+    
+    # Add user message section
+    final_query += """
+=== USER MESSAGE ===
+{query}
+""".format(query=query)
+    
+    # Add instructions for using the context
+    final_query += """
+=== INSTRUCTIONS ===
+Use all the above information, as well as previous messages in this conversation, as context for your response to the user.
+"""
     
     # Add the enhanced query as the last message
     messages.append({"role": "user", "content": final_query})
@@ -117,6 +147,7 @@ def ask(
     query: str,
     df: pd.DataFrame,
     memory,
+    organism=None,  # Add organism parameter
     model: str = GPT_MODEL,
     token_budget: int = 4096 - 500
 ) -> str:
@@ -127,7 +158,7 @@ def ask(
     # Initialize with system message if first interaction
     if not working_memory.get_messages():
         working_memory.initialize_with_system_message(
-            "You converse with the human."
+            "You converse with the human/user."
         )
     
     # Store original query in working memory
@@ -138,6 +169,7 @@ def ask(
         query,
         df,
         memory,
+        organism,  # Pass the organism
         model=model,
         token_budget=token_budget
     )
@@ -180,7 +212,10 @@ def user_chat(organism):
             if user_query.lower() in ("exit", "quit", "exit()", "quit()"):
                 print("Exiting chat.")
                 break
-            answer = ask(user_query, knowledge_df, memory)
+            
+            analyze_user_message(user_query, organism.emotions)
+
+            answer = ask(user_query, knowledge_df, memory, organism)  # Pass the organism
             print(f"{organism.name}: {answer}")
     finally:
         # Save conversation history and reflection
@@ -195,4 +230,9 @@ def user_chat(organism):
         if what_worked or what_to_avoid:
             print("Updating procedural memory with conversation insights...")
             memory.update_procedural_memory(what_worked, what_to_avoid)
+        
+        # Save emotional state if the organism has emotions
+        if hasattr(organism, 'emotions') and organism.emotions:
+            print("Saving emotional state...")
+            organism.emotions.save_to_file()
 

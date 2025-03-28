@@ -1,7 +1,8 @@
 import random
 import string
 import re  # for sanitizing filenames
-
+import tiktoken
+from config import GPT_MODEL
 
 def generate_unique_code(existing_codes):
     """Generate a five-character alphanumeric code that starts with a letter and is not in the provided list of existing codes.
@@ -33,3 +34,8 @@ def sanitize_filename(filename: str) -> str:
     sanitized = re.sub(r'[\\/*?:"<>|]', '', filename)
     sanitized = sanitized.replace(' ', '_')
     return sanitized.lower()
+
+def num_tokens(text: str, model: str = GPT_MODEL) -> int:
+    """Return the number of tokens in a string."""
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))

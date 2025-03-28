@@ -15,3 +15,6 @@ markdownify
 openai
 tiktoken
 pandas
+scipy
+pyyaml
+textblob

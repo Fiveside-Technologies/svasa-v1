@@ -44,12 +44,11 @@ def learn(seed_phrase: str, obsidian_db_dir: str, vector_db_dir: str, remaining_
 
     # Process for embeddings and save to vector database
     print(f"Generating embeddings for {seed_phrase}...")
-    embeddings_df = embed_markdown_content(full_md_content, page_title=seed_phrase)
+    embeddings_df = embed_markdown_content(full_md_content)
     
     # Create article-specific CSV file
     sanitized_name = sanitize_filename(seed_phrase)
     vector_csv_path = os.path.join(vector_db_dir, f"{sanitized_name}.csv")
-    os.makedirs(vector_db_dir, exist_ok=True)
     save_embeddings_to_file(embeddings_df, vector_csv_path, append=False)  # Create a new file for each article
 
     if remaining_depth > 1 and updated_links:

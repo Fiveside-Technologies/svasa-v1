@@ -3,6 +3,9 @@ import os  # for environment variables
 import pandas as pd  # for DataFrames to store article sections and embeddings 
 import re  # for cutting <ref> links out of Wikipedia articles
 import tiktoken  # for counting tokens
+import json  # for loading reflection files
+from utils import num_tokens
+from config import GPT_MODEL, EMBEDDING_MODEL, MAX_TOKENS, BATCH_SIZE, CHUNK_OVERLAP
 
 # Sections to ignore in the markdown content
 SECTIONS_TO_IGNORE = [
@@ -26,18 +29,8 @@ SECTIONS_TO_IGNORE = [
     "References and notes",
 ]
 
-GPT_MODEL = "gpt-4o-mini"
-MAX_TOKENS = 1600  # Maximum tokens per chunk for splitting
-EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI embedding model
-BATCH_SIZE = 1000  # Max batch size for embedding requests
-
-def num_tokens(text: str, model: str = GPT_MODEL) -> int:
-    """Return the number of tokens in a string."""
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
-
 def halved_by_delimiter(string: str, delimiter: str = "\n") -> list:
-    """Split a string in two, on a delimiter, trying to balance tokens on each side."""
+    """Split a string in two, on a delimiter, trying to balance tokens on each side with overlap."""
     chunks = string.split(delimiter)
     if len(chunks) == 1:
         return [string, ""]  # no delimiter found
@@ -57,8 +50,22 @@ def halved_by_delimiter(string: str, delimiter: str = "\n") -> list:
             else:
                 best_diff = diff
                 best_index = i
+        
+        # Create the left and right chunks
         left = delimiter.join(chunks[:best_index+1])
         right = delimiter.join(chunks[best_index+1:])
+        
+        # Add overlap if we have meaningful chunks to overlap
+        if CHUNK_OVERLAP > 0 and best_index > 0:
+            # Calculate how many chunks to include in the overlap
+            overlap_chunk_count = max(1, min(best_index // 2, 3))  # Take 1-3 chunks for overlap
+            
+            # Get the overlapping text from the end of the left chunk
+            overlap_text = delimiter.join(chunks[best_index-overlap_chunk_count+1:best_index+1])
+            
+            # Add the overlap text to the beginning of the right chunk
+            right = overlap_text + delimiter + right
+        
         return [left, right]
 
 def truncated_string(string: str, model: str, max_tokens: int, print_warning: bool = True) -> str:
@@ -205,20 +212,18 @@ def split_markdown_into_chunks(page: str) -> list[tuple[str, str]]:
     
     return final_chunks
 
-def embed_markdown_content(page: str, page_title: str = None, api_key: str = None) -> pd.DataFrame:
+def embed_markdown_content(page: str) -> pd.DataFrame:
     """
     Process a markdown page into chunks, get embeddings, and return a DataFrame.
     
     Args:
         page: The markdown content as a string
-        page_title: Optional title to include in the dataframe for reference
-        api_key: OpenAI API key (defaults to environment variable)
-        
+
     Returns:
-        DataFrame with columns: 'title', 'text', 'embedding'
+        DataFrame with columns: 'text', 'embedding'
     """
-    # Initialize OpenAI client
-    client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
+
+    client = OpenAI()
     
     # Split the markdown into chunks
     chunks = split_markdown_into_chunks(page)
@@ -231,7 +236,7 @@ def embed_markdown_content(page: str, page_title: str = None, api_key: str = Non
     
     # Get embeddings in batches
     all_embeddings = []
-    print(f"Processing {len(formatted_chunks)} chunks for embedding...")
+    print(f"Processing {len(formatted_chunks)} chunk(s) for embedding...")
     
     for batch_start in range(0, len(formatted_chunks), BATCH_SIZE):
         batch_end = min(batch_start + BATCH_SIZE, len(formatted_chunks))
@@ -247,10 +252,8 @@ def embed_markdown_content(page: str, page_title: str = None, api_key: str = Non
             # In case of error, add None for embeddings to maintain alignment
             all_embeddings.extend([None] * len(batch))
     
-    # Create DataFrame
-    titles = [page_title] * len(formatted_chunks) if page_title else [""] * len(formatted_chunks)
+    # Create DataFrame with just text and embedding columns
     df = pd.DataFrame({
-        "title": titles,
         "text": formatted_chunks,
         "embedding": all_embeddings
     })
@@ -338,6 +341,84 @@ def merge_embedding_files(directory: str, output_file: str = None, pattern: str 
         print(f"Saved merged embeddings to {output_file}")
     
     return merged_df
+
+def embed_reflection(reflection_file: str) -> pd.DataFrame:
+    """
+    Create embeddings for an episodic memory reflection file, with proper chunking for long conversations.
+    
+    Args:
+        reflection_file: Path to the reflection JSON file
+        
+    Returns:
+        DataFrame with chunked text and embeddings
+    """
+    client = OpenAI()
+    
+    # Load the reflection file
+    with open(reflection_file, 'r') as f:
+        reflection = json.load(f)
+    
+    # Format the tags for embedding
+    tags = reflection.get('context_tags', [])
+    tags_text = ", ".join(tags) if isinstance(tags, list) else str(tags)
+    
+    # Create the metadata portion of the text (which will be included in every chunk)
+    metadata_text = (
+        f"TAGS: {tags_text}\n"
+        f"SUMMARY: {reflection.get('conversation_summary', '')}\n"
+        f"WHAT WORKED: {reflection.get('what_worked', '')}\n"
+        f"WHAT TO AVOID: {reflection.get('what_to_avoid', '')}\n\n"
+    )
+    
+    # Get the conversation text which might need chunking
+    conversation_text = reflection.get('conversation', '')
+    
+    # Check if we need to chunk (metadata + conversation might exceed token limit)
+    combined_text = metadata_text + "FULL CONVERSATION:\n" + conversation_text
+    if num_tokens(combined_text) <= MAX_TOKENS:
+        # If under token limit, create single embedding
+        embedding_chunks = [combined_text]
+    else:
+        # We need to chunk the conversation text
+        conversation_chunks = []
+        
+        # Use the existing chunking function to split the conversation
+        # The metadata text becomes our "context" that's preserved for each chunk
+        chunk_tuples = split_text_into_chunks(
+            text=conversation_text, 
+            context=metadata_text + "FULL CONVERSATION (PART):\n",
+            max_tokens=MAX_TOKENS,
+            model=GPT_MODEL
+        )
+        
+        # Format the chunks
+        embedding_chunks = [context + text for context, text in chunk_tuples]
+    
+    # Generate embeddings for all chunks in batches
+    all_embeddings = []
+    print(f"Processing {len(embedding_chunks)} chunk(s) embedding...")
+    
+    for batch_start in range(0, len(embedding_chunks), BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, len(embedding_chunks))
+        batch = embedding_chunks[batch_start:batch_end]
+        print(f"  Embedding batch {batch_start} to {batch_end-1}")
+        
+        try:
+            response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
+            batch_embeddings = [e.embedding for e in response.data]
+            all_embeddings.extend(batch_embeddings)
+        except Exception as e:
+            print(f"Error getting embeddings: {e}")
+            # In case of error, add None for embeddings to maintain alignment
+            all_embeddings.extend([None] * len(batch))
+    
+    # Create DataFrame with text and embedding columns
+    df = pd.DataFrame({
+        "text": embedding_chunks,
+        "embedding": all_embeddings
+    })
+    
+    return df
 
 if __name__ == "__main__":
     # Directly access the file using a relative path from this module.

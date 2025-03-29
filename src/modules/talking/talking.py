@@ -137,9 +137,9 @@ Use all the above information, as well as previous messages in this conversation
     messages.append({"role": "user", "content": final_query})
     
     # DEBUG: Print the full prompt
-    print("\n" + "="*25 + " FULL PROMPT " + "="*25)
-    print(final_query)
-    print("="*60 + "\n")
+    # print("\n" + "="*25 + " FULL PROMPT " + "="*25)
+    # print(final_query)
+    # print("="*60 + "\n")
     
     return messages
 
@@ -178,7 +178,7 @@ def ask(
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=0.5
+        temperature=0.2
     )
     
     response_message = response.choices[0].message.content
@@ -235,4 +235,222 @@ def user_chat(organism):
         if hasattr(organism, 'emotions') and organism.emotions:
             print("Saving emotional state...")
             organism.emotions.save_to_file()
+
+def ai_personality_test(organism):
+    """
+    Run a Mayer-Briggs personality test with the AI responding to questions.
+    Uses the AI's knowledge and memory but doesn't save any history.
+    Saves the personality type result to the organism's types.yaml file.
+    """
+    import builtins
+    import yaml
+    import datetime
+    import os
+    from modules.personality.mayer_briggs_test import run_test as mb_run_test, main as mb_main, display_personality_type
+    
+    memory = Memory(organism)
+    
+    # Load knowledge embeddings
+    knowledge_path = os.path.join(organism.vector_db_dir, "_embeddings.csv")
+    knowledge_df = pd.DataFrame(columns=["text", "embedding"])
+    
+    if os.path.exists(knowledge_path):
+        knowledge_df = pd.read_csv(knowledge_path)
+        knowledge_df['embedding'] = knowledge_df['embedding'].apply(ast.literal_eval)
+    else:
+        print(f"Warning: Knowledge embeddings not found at {knowledge_path}")
+    
+    # Store original input function and display_personality_type function
+    original_input = builtins.input
+    original_display = display_personality_type
+    
+    # Variable to store the personality type result
+    personality_result = None
+    
+    # Override the display_personality_type function to capture the result
+    def custom_display_personality_type(personality_type):
+        nonlocal personality_result
+        personality_result = personality_type
+        original_display(personality_type)
+    
+    # Override the input function to use AI responses
+    def ai_input(prompt):
+        # If the prompt is the main menu question, return '1' to run the test
+        if "Welcome to the Meyers Briggs Personality Test" in prompt:
+            print(prompt)
+            print("AI selecting option 1: Take test")
+            return '1'
+        
+        # For test questions, let the AI decide
+        print(prompt)
+        
+        # Process the prompt to get a clear A or B choice
+        question_context = """
+        You are taking a Mayer-Briggs personality test. The following is a question with two options.
+        Choose ONLY option A or option B based on your personality and programming. 
+        Respond with ONLY the letter A or B - nothing else.
+        
+        Question: {}
+        """.format(prompt)
+        
+        # Get AI's response using the ask function
+        ai_response = ask(question_context, knowledge_df, memory, organism)
+        
+        # Extract just A or B from response
+        clean_response = ai_response.strip().upper()
+        if 'A' in clean_response:
+            final_response = 'A'
+        elif 'B' in clean_response:
+            final_response = 'B'
+        else:
+            # Default to A if unclear (shouldn't happen with proper instructions)
+            print("AI response unclear, defaulting to A")
+            final_response = 'A'
+        
+        print(f"AI chooses: {final_response}")
+        return final_response
+    
+    try:
+        # Replace input function with our AI version
+        builtins.input = ai_input
+        
+        # Replace display_personality_type with our custom version
+        import modules.personality.mayer_briggs_test
+        modules.personality.mayer_briggs_test.display_personality_type = custom_display_personality_type
+        
+        print(f"\n{organism.name} is taking the Mayer-Briggs Personality Test...\n")
+        
+        # Run the Mayer-Briggs test
+        mb_main()
+        
+        # Save the personality type to the types.yaml file if we got a result
+        if personality_result:
+            # Create timestamp
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Define the path to the types.yaml file
+            types_file = organism.personality_types_file
+            
+            # Load existing data or initialize new data
+            data = []
+            if os.path.exists(types_file):
+                with open(types_file, 'r') as file:
+                    try:
+                        data = yaml.safe_load(file) or []
+                    except:
+                        # If there's an error loading (e.g., empty file), start with empty list
+                        data = []
+            
+            # Add new test result
+            data.append({
+                "type": personality_result.strip(),
+                "timestamp": timestamp
+            })
+            
+            # Write back to the file
+            with open(types_file, 'w') as file:
+                yaml.dump(data, file, default_flow_style=False)
+            
+            print(f"Personality type '{personality_result.strip()}' saved to {types_file}")
+            
+    finally:
+        # Restore original functions
+        builtins.input = original_input
+        modules.personality.mayer_briggs_test.display_personality_type = original_display
+        print(f"\nPersonality test completed for {organism.name}.")
+
+def ai_father_conversation(organism):
+    """
+    Run a conversation between the AI organism and the Father agent.
+    The conversation is limited to 10 messages each and saves all memory data.
+    Passes the full conversation history to the father agent each time.
+    """
+    import asyncio
+    from modules.learning.actors.father import run_father_conversation
+    
+    memory = Memory(organism)
+    
+    # Load knowledge embeddings
+    knowledge_path = os.path.join(organism.vector_db_dir, "_embeddings.csv")
+    knowledge_df = pd.DataFrame(columns=["text", "embedding"])
+    
+    if os.path.exists(knowledge_path):
+        knowledge_df = pd.read_csv(knowledge_path)
+        knowledge_df['embedding'] = knowledge_df['embedding'].apply(ast.literal_eval)
+    else:
+        print(f"Warning: Knowledge embeddings not found at {knowledge_path}")
+    
+    # Initialize conversation
+    print(f"\nStarting conversation between {organism.name} and Father...\n")
+    
+    # Track the full conversation history
+    conversation_history = []
+    
+    # Initial prompt to start the conversation
+    initial_prompt = f"""Engage in a conversation with {organism.name}, an AI organism. 
+    Begin by asking about its knowledge of the solar system, then gradually explore its personality and preferences.
+    Be stern but fair, and share your own introverted perspective on the topics discussed."""
+    
+    try:
+        # Run the conversation for 10 exchanges
+        for i in range(10):
+            # Build the full conversation context
+            if not conversation_history:
+                # First message - use the initial prompt
+                father_prompt = initial_prompt
+            else:
+                # Format the entire conversation history
+                conversation_formatted = "\n".join([
+                    f"{'Father' if idx % 2 == 0 else organism.name}: {msg}" 
+                    for idx, msg in enumerate(conversation_history)
+                ])
+                
+                father_prompt = f"""Here is the conversation so far between you (Father) and {organism.name}:
+
+{conversation_formatted}
+
+Continue this conversation, responding as Father. Remember to be stern but fair, and to explore the AI's knowledge, preferences, and personality."""
+            
+            # Get Father's message
+            father_message = asyncio.run(run_father_conversation(father_prompt))
+            print(f"Father: {father_message}")
+            
+            # Add Father's message to the conversation history
+            conversation_history.append(father_message)
+            
+            # Analyze sentiment of Father's message for emotional impact
+            analyze_user_message(father_message, organism.emotions)
+            
+            # Get AI's response using the ask function
+            ai_response = ask(father_message, knowledge_df, memory, organism)
+            print(f"{organism.name}: {ai_response}")
+            
+            # Add AI's response to the conversation history
+            conversation_history.append(ai_response)
+            
+            # Stop at 10 exchanges
+            if i == 9:
+                print("\nReached 10 exchanges. Ending conversation.")
+                break
+                
+    finally:
+        # Save conversation history and reflection
+        chat_path = memory.get_working_memory().save_conversation()
+        print(f"Chat history saved to: {chat_path}")
+        
+        reflection_path = memory.save_to_episodic_memory()
+        if reflection_path:
+            print(f"Reflection saved to: {reflection_path}")
+        
+        # Final update to procedural memory before exiting
+        if what_worked or what_to_avoid:
+            print("Updating procedural memory with conversation insights...")
+            memory.update_procedural_memory(what_worked, what_to_avoid)
+        
+        # Save emotional state if the organism has emotions
+        if hasattr(organism, 'emotions') and organism.emotions:
+            print("Saving emotional state...")
+            organism.emotions.save_to_file()
+            
+        print(f"\nConversation with Father completed for {organism.name}.")
 

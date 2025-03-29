@@ -48,6 +48,7 @@ class Organism:
         os.makedirs(self.personality_dir, exist_ok=True)
         self.personality_file = os.path.join(self.personality_dir, "traits.yaml")
         self.emotions_file = os.path.join(self.personality_dir, "emotions.yaml")
+        self.personality_types_file = os.path.join(self.personality_dir, "types.yaml")
         
         # Generate random BIG 5 personality traits
         self.personality = generate_random_personality()
@@ -105,7 +106,7 @@ class Organism:
         os.makedirs(instance.personality_dir, exist_ok=True)
         instance.personality_file = os.path.join(instance.personality_dir, "traits.yaml")
         instance.emotions_file = os.path.join(instance.personality_dir, "emotions.yaml")
-        
+        instance.personality_types_file = os.path.join(instance.personality_dir, "types.yaml")
         # Load personality if file exists, otherwise generate random personality
         if os.path.exists(instance.personality_file):
             instance.personality = load_personality(instance.personality_file)

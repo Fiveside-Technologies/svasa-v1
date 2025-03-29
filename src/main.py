@@ -1,7 +1,7 @@
 from organism import Organism
 from modules.learning.learning import learn
 from modules.learning.vector import merge_embedding_files
-from modules.talking.talking import user_chat
+from modules.talking.talking import user_chat, ai_personality_test, ai_father_conversation
 import os
 from dotenv import load_dotenv
 
@@ -37,6 +37,12 @@ def main():
 
         # Start chat with the organism
         user_chat(org)
+
+        # Take the personality test
+        # ai_personality_test(org)
+
+        # Run the father conversation
+        # ai_father_conversation(org)
     except ValueError as e:
         print(f"Error: {e}")
         print("Please create the organism first or check if the name is correct.")

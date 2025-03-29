@@ -18,3 +18,4 @@ pandas
 scipy
 pyyaml
 textblob
+openai-agents
